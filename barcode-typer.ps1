@@ -4,8 +4,9 @@
 #  Hasznalat: jobb klikk -> "Run with PowerShell"
 #  Vagy: powershell -ExecutionPolicy Bypass -File barcode-typer.ps1
 #
-#  Scroll Lock = GLOBALIS hotkey (barmelyik ablakban mukodik!)
-#        megnyomod Scroll Lock-ot a bongeszobe -> begepelio a kovetkezo kodot
+#  Scroll Lock = GLOBALIS hotkey -> begepelio a kovetkezo vonalkodot
+#  F8 = GLOBALIS hotkey -> torli a celmezo tartalmat
+#  Klikk a listaban -> onnan folytatja a sort
 # ============================================================
 
 Add-Type -AssemblyName System.Windows.Forms
@@ -19,6 +20,7 @@ public class HotKeyHelper {
     [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
     public const int WM_HOTKEY = 0x0312;
     public const uint VK_SCROLL = 0x91;
+    public const uint VK_F8 = 0x77;
 }
 "@
 
@@ -135,7 +137,7 @@ $btnLoad.FlatStyle = "Flat"
 $form.Controls.Add($btnLoad)
 
 $lblStatus = New-Object System.Windows.Forms.Label
-$lblStatus.Text = "Scroll Lock = globalis hotkey. Barmelyik ablakban nyomd meg!"
+$lblStatus.Text = "ScrollLock = scan | F8 = torles | Klikk = ugras"
 $lblStatus.Location = New-Object System.Drawing.Point(15, 478)
 $lblStatus.Size = New-Object System.Drawing.Size(395, 40)
 $lblStatus.ForeColor = [System.Drawing.Color]::Gray
@@ -183,11 +185,32 @@ $btnLoad.Add_Click({
     if ($dlg.ShowDialog() -eq "OK") { $txtCodes.Text = (Get-Content $dlg.FileName -Raw); $script:idx = 0; Update-UI }
 })
 $txtCodes.Add_TextChanged({ $script:idx = 0; Update-UI })
+$txtCodes.Add_MouseClick({
+    $charIdx = $txtCodes.GetCharIndexFromPosition($_.Location)
+    $lineIdx = $txtCodes.GetLineFromCharIndex($charIdx)
+    $codes = Get-Codes
+    if ($lineIdx -lt $codes.Count) {
+        $script:idx = $lineIdx
+        Update-UI
+        $lblStatus.Text = "Kivalasztva: $($codes[$lineIdx])"
+    }
+})
 
-# --- Globalis Scroll Lock hotkey regisztracio ---
+# --- Globalis hotkey regisztracio ---
 [HotKeyHelper]::RegisterHotKey($form.Handle, 1, 0, [HotKeyHelper]::VK_SCROLL) | Out-Null
+[HotKeyHelper]::RegisterHotKey($form.Handle, 2, 0, [HotKeyHelper]::VK_F8) | Out-Null
 
-$form.Add_FormClosing({ [HotKeyHelper]::UnregisterHotKey($form.Handle, 1) | Out-Null })
+$form.Add_FormClosing({
+    [HotKeyHelper]::UnregisterHotKey($form.Handle, 1) | Out-Null
+    [HotKeyHelper]::UnregisterHotKey($form.Handle, 2) | Out-Null
+})
+
+function Clear-TargetField {
+    [System.Windows.Forms.SendKeys]::SendWait("^a")
+    Start-Sleep -Milliseconds 20
+    [System.Windows.Forms.SendKeys]::SendWait("{DELETE}")
+    $lblStatus.Text = "Mezo torolve (F8)"
+}
 
 # GetAsyncKeyState pollolas a Scroll Lock-hoz
 Add-Type @"
@@ -198,11 +221,13 @@ public class KeyState {
 }
 "@
 
-# Scroll Lock polling timer
+# Scroll Lock + F8 polling timer
 $pollTimer = New-Object System.Windows.Forms.Timer
 $pollTimer.Interval = 80
 $script:scrollDown = $false
+$script:f8Down = $false
 $pollTimer.Add_Tick({
+    # Scroll Lock -> Send-Next
     $state = [KeyState]::GetAsyncKeyState(0x91) # VK_SCROLL
     if (($state -band 0x8000) -ne 0) {
         if (-not $script:scrollDown) {
@@ -211,6 +236,16 @@ $pollTimer.Add_Tick({
         }
     } else {
         $script:scrollDown = $false
+    }
+    # F8 -> Clear-TargetField
+    $f8state = [KeyState]::GetAsyncKeyState(0x77) # VK_F8
+    if (($f8state -band 0x8000) -ne 0) {
+        if (-not $script:f8Down) {
+            $script:f8Down = $true
+            Clear-TargetField
+        }
+    } else {
+        $script:f8Down = $false
     }
 })
 $pollTimer.Start()
