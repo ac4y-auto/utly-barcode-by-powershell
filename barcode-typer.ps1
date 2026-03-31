@@ -24,15 +24,21 @@ public class HotKeyHelper {
 }
 "@
 
-# --- Alapertelmezett vonalkod lista ---
-$defaultCodes = @(
-    "1B1"
-    "2POLC"
-    "5901780569037"
-    "5900458000933"
-    "fakebin"
-    "CLEAR"
-)
+# --- Vonalkod fajl kezeles ---
+$script:codesFile = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "codes.txt"
+$defaultCodes = @("1B1", "2POLC", "5901780569037", "5900458000933", "fakebin", "CLEAR")
+
+if (Test-Path $script:codesFile) {
+    $loadedCodes = Get-Content $script:codesFile -Encoding UTF8
+} else {
+    $loadedCodes = $defaultCodes
+    $defaultCodes | Set-Content $script:codesFile -Encoding UTF8
+}
+
+function Save-CodesToFile {
+    $codes = $txtCodes.Text.Split("`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+    $codes | Set-Content $script:codesFile -Encoding UTF8
+}
 
 # --- GUI felepitese ---
 $form = New-Object System.Windows.Forms.Form
@@ -57,7 +63,7 @@ $txtCodes.ScrollBars = "Vertical"
 $txtCodes.Location = New-Object System.Drawing.Point(15, 38)
 $txtCodes.Size = New-Object System.Drawing.Size(395, 200)
 $txtCodes.Font = New-Object System.Drawing.Font("Consolas", 11)
-$txtCodes.Text = ($defaultCodes -join "`r`n")
+$txtCodes.Text = ($loadedCodes -join "`r`n")
 $form.Controls.Add($txtCodes)
 
 # --- Kovetkezo kod kijelzo ---
@@ -184,7 +190,7 @@ $btnLoad.Add_Click({
     $dlg.Filter = "Text (*.txt)|*.txt|CSV (*.csv)|*.csv|All (*.*)|*.*"
     if ($dlg.ShowDialog() -eq "OK") { $txtCodes.Text = (Get-Content $dlg.FileName -Raw); $script:idx = 0; Update-UI }
 })
-$txtCodes.Add_TextChanged({ $script:idx = 0; Update-UI })
+$txtCodes.Add_TextChanged({ $script:idx = 0; Update-UI; Save-CodesToFile })
 $txtCodes.Add_MouseClick({
     $charIdx = $txtCodes.GetCharIndexFromPosition($_.Location)
     $lineIdx = $txtCodes.GetLineFromCharIndex($charIdx)
