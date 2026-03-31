@@ -4,8 +4,8 @@
 #  Hasznalat: jobb klikk -> "Run with PowerShell"
 #  Vagy: powershell -ExecutionPolicy Bypass -File barcode-typer.ps1
 #
-#  Ctrl+Alt+A = GLOBALIS hotkey (barmelyik ablakban mukodik!)
-#        megnyomod Ctrl+Alt+A-t a bongeszobe -> begepelio a kovetkezo kodot
+#  Scroll Lock = GLOBALIS hotkey (barmelyik ablakban mukodik!)
+#        megnyomod Scroll Lock-ot a bongeszobe -> begepelio a kovetkezo kodot
 # ============================================================
 
 Add-Type -AssemblyName System.Windows.Forms
@@ -18,9 +18,7 @@ public class HotKeyHelper {
     [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
     [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
     public const int WM_HOTKEY = 0x0312;
-    public const uint MOD_CONTROL = 0x0002;
-    public const uint MOD_ALT = 0x0001;
-    public const uint VK_A = 0x41;
+    public const uint VK_SCROLL = 0x91;
 }
 "@
 
@@ -113,7 +111,7 @@ $form.Controls.Add($txtDelay)
 
 # --- Gombok ---
 $btnScan = New-Object System.Windows.Forms.Button
-$btnScan.Text = "SCAN  (Ctrl+Alt+A)"
+$btnScan.Text = "SCAN  (ScrollLock)"
 $btnScan.Location = New-Object System.Drawing.Point(15, 415)
 $btnScan.Size = New-Object System.Drawing.Size(185, 48)
 $btnScan.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
@@ -137,7 +135,7 @@ $btnLoad.FlatStyle = "Flat"
 $form.Controls.Add($btnLoad)
 
 $lblStatus = New-Object System.Windows.Forms.Label
-$lblStatus.Text = "Ctrl+Alt+A = globalis hotkey. Barmelyik ablakban nyomd meg!"
+$lblStatus.Text = "Scroll Lock = globalis hotkey. Barmelyik ablakban nyomd meg!"
 $lblStatus.Location = New-Object System.Drawing.Point(15, 478)
 $lblStatus.Size = New-Object System.Drawing.Size(395, 40)
 $lblStatus.ForeColor = [System.Drawing.Color]::Gray
@@ -186,24 +184,12 @@ $btnLoad.Add_Click({
 })
 $txtCodes.Add_TextChanged({ $script:idx = 0; Update-UI })
 
-# --- Globalis Ctrl+Alt+A hotkey regisztracio ---
-[HotKeyHelper]::RegisterHotKey($form.Handle, 1, ([HotKeyHelper]::MOD_CONTROL -bor [HotKeyHelper]::MOD_ALT), [HotKeyHelper]::VK_A) | Out-Null
+# --- Globalis Scroll Lock hotkey regisztracio ---
+[HotKeyHelper]::RegisterHotKey($form.Handle, 1, 0, [HotKeyHelper]::VK_SCROLL) | Out-Null
 
 $form.Add_FormClosing({ [HotKeyHelper]::UnregisterHotKey($form.Handle, 1) | Out-Null })
 
-# WndProc override a globalis hotkey-hez
-$form.Add_KeyDown({ if ($_.KeyCode -eq "A" -and $_.Control -and $_.Alt) { Send-Next; $_.Handled = $true } })
-
-# Message filter a WM_HOTKEY-hoz
-$timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = 50
-$timer.Add_Tick({
-    # Sajnos pure PS-ben nem tudunk WndProc-ot overrideolni,
-    # ezert a globalis hotkey-t egy masik megoldassal kezeljuk
-})
-
-# Override: nativan WM_HOTKEY-t nem tudunk pure PS-bol fogni,
-# ezert hasznaljunk GetAsyncKeyState pollolast
+# GetAsyncKeyState pollolas a Scroll Lock-hoz
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -212,22 +198,19 @@ public class KeyState {
 }
 "@
 
-# Ctrl+Alt+A polling timer (80ms - alacsony CPU hasznalat)
+# Scroll Lock polling timer
 $pollTimer = New-Object System.Windows.Forms.Timer
 $pollTimer.Interval = 80
-$script:hotkeyDown = $false
+$script:scrollDown = $false
 $pollTimer.Add_Tick({
-    $ctrl = [KeyState]::GetAsyncKeyState(0x11)  # VK_CONTROL
-    $alt  = [KeyState]::GetAsyncKeyState(0x12)  # VK_MENU (Alt)
-    $aKey = [KeyState]::GetAsyncKeyState(0x41)  # VK_A
-    $allPressed = (($ctrl -band 0x8000) -ne 0) -and (($alt -band 0x8000) -ne 0) -and (($aKey -band 0x8000) -ne 0)
-    if ($allPressed) {
-        if (-not $script:hotkeyDown) {
-            $script:hotkeyDown = $true
+    $state = [KeyState]::GetAsyncKeyState(0x91) # VK_SCROLL
+    if (($state -band 0x8000) -ne 0) {
+        if (-not $script:scrollDown) {
+            $script:scrollDown = $true
             Send-Next
         }
     } else {
-        $script:hotkeyDown = $false
+        $script:scrollDown = $false
     }
 })
 $pollTimer.Start()
