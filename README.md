@@ -14,7 +14,7 @@ Vagy: jobb klikk a fájlra -> **Run with PowerShell**
 
 | Billentyű | Funkció |
 |-----------|---------|
-| **Scroll Lock** | Begépeli a következő vonalkódot az aktív mezőbe |
+| **F9** | Begépeli a következő vonalkódot az aktív mezőbe |
 | **F8** | Törli az aktív mező tartalmát (Select All + Delete) |
 
 A hotkey-k **globálisan** működnek - bármelyik ablakban nyomd meg, nem kell a Barcode Typer-re fókuszálni.
@@ -23,7 +23,7 @@ A hotkey-k **globálisan** működnek - bármelyik ablakban nyomd meg, nem kell 
 
 1. Indítsd el a scriptet
 2. Kattints a célmezőbe (pl. böngésző input)
-3. Nyomd meg a **Scroll Lock**-ot - a következő vonalkódot begépeli
+3. Nyomd meg az **F9**-et - a következő vonalkódot begépeli
 4. Ha rossz mezőbe írta, nyomj **F8**-at a törléshez
 
 ## Vonalkód lista
