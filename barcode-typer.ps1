@@ -40,6 +40,17 @@ function Save-CodesToFile {
     $codes | Set-Content $script:codesFile -Encoding UTF8
 }
 
+# --- Dark theme szinek ---
+$bgColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
+$fgColor = [System.Drawing.Color]::FromArgb(220, 220, 220)
+$inputBg = [System.Drawing.Color]::FromArgb(45, 45, 45)
+$inputFg = [System.Drawing.Color]::FromArgb(230, 230, 230)
+$accentBg = [System.Drawing.Color]::FromArgb(0, 120, 210)
+$codeBg = [System.Drawing.Color]::FromArgb(20, 40, 60)
+$codeFg = [System.Drawing.Color]::FromArgb(80, 180, 255)
+$btnBg = [System.Drawing.Color]::FromArgb(55, 55, 55)
+$btnFg = [System.Drawing.Color]::FromArgb(200, 200, 200)
+
 # --- GUI felepitese ---
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Barcode Typer"
@@ -49,12 +60,15 @@ $form.FormBorderStyle = "FixedSingle"
 $form.MaximizeBox = $false
 $form.TopMost = $true
 $form.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+$form.BackColor = $bgColor
+$form.ForeColor = $fgColor
 
 # --- Vonalkod lista ---
 $lblTitle = New-Object System.Windows.Forms.Label
 $lblTitle.Text = "Vonalkod lista (soronkent egy kod):"
 $lblTitle.Location = New-Object System.Drawing.Point(15, 12)
 $lblTitle.Size = New-Object System.Drawing.Size(400, 22)
+$lblTitle.ForeColor = $fgColor
 $form.Controls.Add($lblTitle)
 
 $txtCodes = New-Object System.Windows.Forms.TextBox
@@ -64,6 +78,8 @@ $txtCodes.Location = New-Object System.Drawing.Point(15, 38)
 $txtCodes.Size = New-Object System.Drawing.Size(395, 200)
 $txtCodes.Font = New-Object System.Drawing.Font("Consolas", 11)
 $txtCodes.Text = ($loadedCodes -join "`r`n")
+$txtCodes.BackColor = $inputBg
+$txtCodes.ForeColor = $inputFg
 $form.Controls.Add($txtCodes)
 
 # --- Kovetkezo kod kijelzo ---
@@ -77,8 +93,8 @@ $lblCode = New-Object System.Windows.Forms.Label
 $lblCode.Location = New-Object System.Drawing.Point(15, 270)
 $lblCode.Size = New-Object System.Drawing.Size(395, 40)
 $lblCode.Font = New-Object System.Drawing.Font("Consolas", 16, [System.Drawing.FontStyle]::Bold)
-$lblCode.ForeColor = [System.Drawing.Color]::FromArgb(0, 90, 180)
-$lblCode.BackColor = [System.Drawing.Color]::FromArgb(235, 245, 255)
+$lblCode.ForeColor = $codeFg
+$lblCode.BackColor = $codeBg
 $lblCode.TextAlign = "MiddleCenter"
 $lblCode.BorderStyle = "FixedSingle"
 $form.Controls.Add($lblCode)
@@ -86,7 +102,7 @@ $form.Controls.Add($lblCode)
 $lblIndex = New-Object System.Windows.Forms.Label
 $lblIndex.Location = New-Object System.Drawing.Point(15, 314)
 $lblIndex.Size = New-Object System.Drawing.Size(395, 20)
-$lblIndex.ForeColor = [System.Drawing.Color]::Gray
+$lblIndex.ForeColor = [System.Drawing.Color]::FromArgb(140, 140, 140)
 $lblIndex.TextAlign = "MiddleCenter"
 $form.Controls.Add($lblIndex)
 
@@ -115,6 +131,8 @@ $txtDelay = New-Object System.Windows.Forms.TextBox
 $txtDelay.Text = "50"
 $txtDelay.Location = New-Object System.Drawing.Point(100, 374)
 $txtDelay.Size = New-Object System.Drawing.Size(50, 24)
+$txtDelay.BackColor = $inputBg
+$txtDelay.ForeColor = $inputFg
 $form.Controls.Add($txtDelay)
 
 # --- Gombok ---
@@ -123,7 +141,7 @@ $btnScan.Text = "SCAN  (F9)"
 $btnScan.Location = New-Object System.Drawing.Point(15, 415)
 $btnScan.Size = New-Object System.Drawing.Size(185, 48)
 $btnScan.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
-$btnScan.BackColor = [System.Drawing.Color]::FromArgb(0, 120, 210)
+$btnScan.BackColor = $accentBg
 $btnScan.ForeColor = [System.Drawing.Color]::White
 $btnScan.FlatStyle = "Flat"
 $form.Controls.Add($btnScan)
@@ -133,6 +151,8 @@ $btnReset.Text = "Reset"
 $btnReset.Location = New-Object System.Drawing.Point(210, 415)
 $btnReset.Size = New-Object System.Drawing.Size(95, 48)
 $btnReset.FlatStyle = "Flat"
+$btnReset.BackColor = $btnBg
+$btnReset.ForeColor = $btnFg
 $form.Controls.Add($btnReset)
 
 $btnLoad = New-Object System.Windows.Forms.Button
@@ -140,13 +160,15 @@ $btnLoad.Text = "Load .txt"
 $btnLoad.Location = New-Object System.Drawing.Point(315, 415)
 $btnLoad.Size = New-Object System.Drawing.Size(95, 48)
 $btnLoad.FlatStyle = "Flat"
+$btnLoad.BackColor = $btnBg
+$btnLoad.ForeColor = $btnFg
 $form.Controls.Add($btnLoad)
 
 $lblStatus = New-Object System.Windows.Forms.Label
 $lblStatus.Text = "F9 = scan | F8 = torles | Klikk = ugras"
 $lblStatus.Location = New-Object System.Drawing.Point(15, 478)
 $lblStatus.Size = New-Object System.Drawing.Size(395, 40)
-$lblStatus.ForeColor = [System.Drawing.Color]::Gray
+$lblStatus.ForeColor = [System.Drawing.Color]::FromArgb(140, 140, 140)
 $lblStatus.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 $form.Controls.Add($lblStatus)
 
