@@ -30,84 +30,7 @@ public class HotKeyHelper {
     public const uint VK_F9 = 0x78;
     public const uint VK_F8 = 0x77;
 }
-public class WinApi {
-    [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
-    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
-    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-    [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach);
-    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-    [DllImport("user32.dll")] public static extern uint GetCurrentThreadId();
-    [DllImport("user32.dll")] public static extern IntPtr SetFocus(IntPtr hWnd);
-    [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr hWnd, EnumChildProc cb, IntPtr lp);
-    public delegate bool EnumChildProc(IntPtr h, IntPtr lp);
-    [DllImport("user32.dll")] public static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
-    [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct INPUT {
-        public uint type;
-        public INPUTUNION u;
-    }
-    [StructLayout(LayoutKind.Explicit)]
-    public struct INPUTUNION {
-        [FieldOffset(0)] public KEYBDINPUT ki;
-    }
-    [StructLayout(LayoutKind.Sequential)]
-    public struct KEYBDINPUT {
-        public ushort wVk;
-        public ushort wScan;
-        public uint dwFlags;
-        public uint time;
-        public IntPtr dwExtraInfo;
-    }
-    public const uint INPUT_KEYBOARD = 1;
-    public const uint KEYEVENTF_KEYUP = 0x0002;
-    public const uint KEYEVENTF_UNICODE = 0x0004;
-
-    // Find Chrome_RenderWidgetHostHWND child window
-    public static IntPtr FindRenderWidget(IntPtr parentHwnd) {
-        IntPtr found = IntPtr.Zero;
-        EnumChildWindows(parentHwnd, (h, lp) => {
-            var sb = new System.Text.StringBuilder(128);
-            GetClassName(h, sb, 128);
-            if (sb.ToString() == "Chrome_RenderWidgetHostHWND") { found = h; return false; }
-            return true;
-        }, IntPtr.Zero);
-        return found;
-    }
-
-    // Inject string as Unicode keystrokes via SendInput (OS-level, bypasses focus issues)
-    public static void SendString(string text) {
-        var inputs = new System.Collections.Generic.List<INPUT>();
-        foreach (char c in text) {
-            var down = new INPUT { type = INPUT_KEYBOARD };
-            down.u.ki = new KEYBDINPUT { wScan = (ushort)c, dwFlags = KEYEVENTF_UNICODE };
-            var up = new INPUT { type = INPUT_KEYBOARD };
-            up.u.ki = new KEYBDINPUT { wScan = (ushort)c, dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP };
-            inputs.Add(down);
-            inputs.Add(up);
-        }
-        SendInput((uint)inputs.Count, inputs.ToArray(), System.Runtime.InteropServices.Marshal.SizeOf(typeof(INPUT)));
-    }
-
-    // Focus Chrome renderer via AttachThreadInput (bypasses SetForegroundWindow restrictions)
-    public static bool FocusWindow(IntPtr targetHwnd) {
-        IntPtr renderHwnd = FindRenderWidget(targetHwnd);
-        if (renderHwnd == IntPtr.Zero) renderHwnd = targetHwnd;
-        uint pid = 0;
-        uint targetThread = GetWindowThreadProcessId(targetHwnd, out pid);
-        uint currentThread = GetCurrentThreadId();
-        AttachThreadInput(currentThread, targetThread, true);
-        SetFocus(renderHwnd);
-        SetForegroundWindow(targetHwnd);
-        AttachThreadInput(currentThread, targetThread, false);
-        return true;
-    }
-}
 "@
-
-# Az utolso celablak trackelese
-$script:targetHwnd = [IntPtr]::Zero
 
 # --- Vonalkod fajl kezeles ---
 $script:codesFile = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "codes.txt"
@@ -126,20 +49,20 @@ function Save-CodesToFile {
 }
 
 # --- Dark theme szinek ---
-$bgColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
-$fgColor = [System.Drawing.Color]::FromArgb(220, 220, 220)
-$inputBg = [System.Drawing.Color]::FromArgb(45, 45, 45)
-$inputFg = [System.Drawing.Color]::FromArgb(230, 230, 230)
+$bgColor  = [System.Drawing.Color]::FromArgb(30, 30, 30)
+$fgColor  = [System.Drawing.Color]::FromArgb(220, 220, 220)
+$inputBg  = [System.Drawing.Color]::FromArgb(45, 45, 45)
+$inputFg  = [System.Drawing.Color]::FromArgb(230, 230, 230)
 $accentBg = [System.Drawing.Color]::FromArgb(0, 120, 210)
-$codeBg = [System.Drawing.Color]::FromArgb(20, 40, 60)
-$codeFg = [System.Drawing.Color]::FromArgb(80, 180, 255)
-$btnBg = [System.Drawing.Color]::FromArgb(55, 55, 55)
-$btnFg = [System.Drawing.Color]::FromArgb(200, 200, 200)
+$codeBg   = [System.Drawing.Color]::FromArgb(20, 40, 60)
+$codeFg   = [System.Drawing.Color]::FromArgb(80, 180, 255)
+$btnBg    = [System.Drawing.Color]::FromArgb(55, 55, 55)
+$btnFg    = [System.Drawing.Color]::FromArgb(200, 200, 200)
 
 # --- GUI felepitese ---
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Barcode Typer"
-$form.Size = New-Object System.Drawing.Size(440, 595)
+$form.Size = New-Object System.Drawing.Size(440, 560)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedSingle"
 $form.MaximizeBox = $false
@@ -229,9 +152,9 @@ $lblPrefix.Size = New-Object System.Drawing.Size(50, 24)
 $form.Controls.Add($lblPrefix)
 
 $txtPrefix = New-Object System.Windows.Forms.TextBox
-$txtPrefix.Text = "`$"
+$txtPrefix.Text = ""
 $txtPrefix.Location = New-Object System.Drawing.Point(65, 408)
-$txtPrefix.Size = New-Object System.Drawing.Size(60, 24)
+$txtPrefix.Size = New-Object System.Drawing.Size(80, 24)
 $txtPrefix.BackColor = $inputBg
 $txtPrefix.ForeColor = [System.Drawing.Color]::FromArgb(80, 200, 120)
 $txtPrefix.Font = New-Object System.Drawing.Font("Consolas", 11)
@@ -239,51 +162,18 @@ $form.Controls.Add($txtPrefix)
 
 $lblSuffix = New-Object System.Windows.Forms.Label
 $lblSuffix.Text = "Suffix:"
-$lblSuffix.Location = New-Object System.Drawing.Point(145, 410)
+$lblSuffix.Location = New-Object System.Drawing.Point(165, 410)
 $lblSuffix.Size = New-Object System.Drawing.Size(50, 24)
 $form.Controls.Add($lblSuffix)
 
 $txtSuffix = New-Object System.Windows.Forms.TextBox
-$txtSuffix.Text = "#"
-$txtSuffix.Location = New-Object System.Drawing.Point(195, 408)
-$txtSuffix.Size = New-Object System.Drawing.Size(60, 24)
+$txtSuffix.Text = ""
+$txtSuffix.Location = New-Object System.Drawing.Point(215, 408)
+$txtSuffix.Size = New-Object System.Drawing.Size(80, 24)
 $txtSuffix.BackColor = $inputBg
 $txtSuffix.ForeColor = [System.Drawing.Color]::FromArgb(80, 200, 120)
 $txtSuffix.Font = New-Object System.Drawing.Font("Consolas", 11)
 $form.Controls.Add($txtSuffix)
-
-$btnTarget = New-Object System.Windows.Forms.Button
-$btnTarget.Text = "Celablak rogzitese (3mp mulva)"
-$btnTarget.Location = New-Object System.Drawing.Point(270, 404)
-$btnTarget.Size = New-Object System.Drawing.Size(155, 32)
-$btnTarget.FlatStyle = "Flat"
-$btnTarget.BackColor = [System.Drawing.Color]::FromArgb(60, 80, 40)
-$btnTarget.ForeColor = [System.Drawing.Color]::FromArgb(120, 220, 80)
-$btnTarget.Font = New-Object System.Drawing.Font("Segoe UI", 8)
-$form.Controls.Add($btnTarget)
-
-$script:countdown = 3
-$countTimer = New-Object System.Windows.Forms.Timer
-$countTimer.Interval = 1000
-$countTimer.Add_Tick({
-    $script:countdown--
-    if ($script:countdown -gt 0) {
-        $btnTarget.Text = "Kattints a celablakra! ($script:countdown)"
-    } else {
-        $countTimer.Stop()
-        $script:targetHwnd = [WinApi]::GetForegroundWindow()
-        $btnTarget.Text = "Celablak: $($script:targetHwnd)"
-        $btnTarget.BackColor = [System.Drawing.Color]::FromArgb(30, 100, 30)
-        $lblStatus.Text = "Celablak rogzitve! F9 = scan ide."
-        $script:countdown = 3
-    }
-})
-$btnTarget.Add_Click({
-    $btnTarget.Text = "Kattints a celablakra! (3)"
-    $btnTarget.BackColor = [System.Drawing.Color]::FromArgb(80, 60, 20)
-    $script:countdown = 3
-    $countTimer.Start()
-})
 
 # --- Gombok ---
 $btnScan = New-Object System.Windows.Forms.Button
@@ -346,27 +236,14 @@ function Send-Next {
         if ($chkLoop.Checked) { $script:idx = 0 } else { return }
     }
     $code = $codes[$script:idx]
-
-    $prefix = $txtPrefix.Text
-    $suffix = $txtSuffix.Text
-    $full   = $prefix + $code + $suffix
-    if ($chkEnter.Checked) { $full += "`r" }
-
-    if ($script:targetHwnd -eq [IntPtr]::Zero) {
-        $lblStatus.Text = "HIBA: Nincs celablak! Kattints a 'Celablak rogzitese' gombra!"
-        return
-    }
-
-    # 1. AttachThreadInput + SetFocus -> Chrome rendererre fokuszal (fokusz-lopas bypass)
-    [WinApi]::FocusWindow($script:targetHwnd) | Out-Null
+    $full = $txtPrefix.Text + $code + $txtSuffix.Text
     Start-Sleep -Milliseconds ([int]$txtDelay.Text)
-
-    # 2. SendInput Unicode injektalas (OS-szintu, a Chrome JS keydown-t lát)
-    [WinApi]::SendString($full)
-
+    $escaped = $full -replace '([+^%~(){}])', '{$1}'
+    [System.Windows.Forms.SendKeys]::SendWait($escaped)
+    if ($chkEnter.Checked) { [System.Windows.Forms.SendKeys]::SendWait("{ENTER}") }
     $script:idx++
     Update-UI
-    $lblStatus.Text = "OK: $full -> [$($script:targetHwnd)]"
+    $lblStatus.Text = "Elkuldte: $full"
 }
 
 $btnScan.Add_Click({ Send-Next })
@@ -419,26 +296,15 @@ $pollTimer.Interval = 80
 $script:f9Down = $false
 $script:f8Down = $false
 $pollTimer.Add_Tick({
-    # F9 -> Send-Next
     $state = [KeyState]::GetAsyncKeyState(0x78) # VK_F9
     if (($state -band 0x8000) -ne 0) {
-        if (-not $script:f9Down) {
-            $script:f9Down = $true
-            Send-Next
-        }
-    } else {
-        $script:f9Down = $false
-    }
-    # F8 -> Clear-TargetField
+        if (-not $script:f9Down) { $script:f9Down = $true; Send-Next }
+    } else { $script:f9Down = $false }
+
     $f8state = [KeyState]::GetAsyncKeyState(0x77) # VK_F8
     if (($f8state -band 0x8000) -ne 0) {
-        if (-not $script:f8Down) {
-            $script:f8Down = $true
-            Clear-TargetField
-        }
-    } else {
-        $script:f8Down = $false
-    }
+        if (-not $script:f8Down) { $script:f8Down = $true; Clear-TargetField }
+    } else { $script:f8Down = $false }
 })
 $pollTimer.Start()
 $form.Add_FormClosing({ $pollTimer.Stop() })
