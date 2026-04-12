@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<title>Barcode Typer – Teszt felület</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #1e1e1e;
+    color: #ddd;
+    font-family: 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    min-height: 100vh;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 8px; color: #80b4ff; }
+  .hint { font-size: 0.85rem; color: #888; margin-bottom: 20px; }
+
+  /* --- Mode selector --- */
+  .mode-bar {
+    width: 100%; max-width: 560px;
+    display: flex; gap: 8px;
+    margin-bottom: 14px;
+  }
+  .mode-btn {
+    flex: 1; padding: 8px;
+    border: 1px solid #444; border-radius: 5px;
+    background: #2a2a2a; color: #888;
+    cursor: pointer; font-size: 0.85rem; text-align: center;
+    transition: all 0.15s;
+  }
+  .mode-btn.active { background: #0078d2; color: #fff; border-color: #0078d2; }
+  .mode-btn:hover:not(.active) { background: #333; color: #ccc; }
+
+  /* --- Mode config panels --- */
+  .mode-config {
+    width: 100%; max-width: 560px;
+    background: #252525; border: 1px solid #333; border-radius: 6px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    font-size: 0.85rem; color: #aaa;
+  }
+  .mode-config label { color: #888; }
+  .mode-config input[type=text], .mode-config input[type=number] {
+    background: #1a1a1a; color: #50e8ff;
+    border: 1px solid #444; border-radius: 4px;
+    padding: 4px 8px; font-family: 'Consolas', monospace; font-size: 0.95rem;
+    width: 60px; outline: none;
+  }
+  .mode-config input:focus { border-color: #0078d2; }
+  .mode-config .preview {
+    margin-left: auto; font-family: 'Consolas', monospace;
+    color: #50c850; font-size: 0.85rem;
+  }
+
+  /* --- Scan input --- */
+  .input-area { width: 100%; max-width: 560px; margin-bottom: 16px; }
+  #scanInput {
+    width: 100%; padding: 14px 16px;
+    font-size: 1.5rem; font-family: 'Consolas', monospace;
+    background: #141414; color: #50c8ff;
+    border: 2px solid #0078d2; border-radius: 6px;
+    outline: none; text-align: center; caret-color: #50c8ff;
+  }
+  #scanInput:focus { border-color: #50e0ff; box-shadow: 0 0 0 3px rgba(80,200,255,0.15); }
+  #scanInput.flash { animation: flash 0.25s ease; }
+  @keyframes flash {
+    0%   { background: #0d3a52; }
+    100% { background: #141414; }
+  }
+
+  /* --- Controls --- */
+  .controls {
+    width: 100%; max-width: 560px;
+    display: flex; gap: 10px; margin-bottom: 20px;
+  }
+  button {
+    padding: 8px 18px; border: none; border-radius: 5px;
+    cursor: pointer; font-size: 0.9rem;
+    background: #373737; color: #ccc;
+  }
+  button:hover { background: #444; }
+  #btnClear { background: #5a1a1a; color: #ff8080; }
+  #btnClear:hover { background: #7a2020; }
+  .counter { margin-left: auto; font-size: 0.85rem; color: #666; align-self: center; }
+
+  /* --- Log --- */
+  .log-wrap {
+    width: 100%; max-width: 560px;
+    background: #141414; border: 1px solid #333; border-radius: 6px; overflow: hidden;
+  }
+  .log-header {
+    padding: 8px 14px; font-size: 0.8rem; color: #666;
+    border-bottom: 1px solid #2a2a2a; background: #1a1a1a;
+  }
+  #log { max-height: 360px; overflow-y: auto; padding: 6px 0; }
+  .log-entry {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 6px 14px; border-bottom: 1px solid #1f1f1f;
+    animation: fadeIn 0.2s ease;
+  }
+  .log-entry:last-child { border-bottom: none; }
+  .log-entry:hover { background: #1c1c1c; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+  .log-num  { font-size: 0.75rem; color: #555; min-width: 28px; text-align: right; }
+  .log-time { font-size: 0.75rem; color: #666; min-width: 90px; font-family: 'Consolas', monospace; }
+  .log-raw  { font-family: 'Consolas', monospace; font-size: 0.8rem; color: #555; }
+  .log-code { font-family: 'Consolas', monospace; font-size: 1rem; color: #50c8ff; flex: 1; }
+  .log-code.new { color: #80ff80; }
+  .log-empty { padding: 20px; text-align: center; color: #444; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<h1>Barcode Typer – Teszt felület</h1>
+<p class="hint">Kattints a mezőre, majd nyomj F9-et a szimulátorban</p>
+
+<!-- Mode selector -->
+<div class="mode-bar">
+  <div class="mode-btn active" id="modeTimeBtn" onclick="setMode('time')">⏱ Időalapú</div>
+  <div class="mode-btn" id="modePsBtn"   onclick="setMode('ps')">⚙ Prefix–Suffix</div>
+</div>
+
+<!-- Time-based config -->
+<div class="mode-config" id="cfgTime">
+  <label>Timeout:</label>
+  <input type="number" id="cfgTimeout" value="300" min="50" max="2000" style="width:70px"> ms
+  <label style="margin-left:8px">Enter = azonnali commit</label>
+  <span class="preview" id="previewTime">várás: 300ms</span>
+</div>
+
+<!-- Prefix-Suffix config -->
+<div class="mode-config" id="cfgPs" style="display:none">
+  <label>Prefix:</label>
+  <input type="text" id="cfgPrefix" value="" placeholder="pl. #" maxlength="5">
+  <label>Suffix:</label>
+  <input type="text" id="cfgSuffix" value="" placeholder="pl. $" maxlength="5">
+  <span class="preview" id="previewPs">→ nyers adat</span>
+</div>
+
+<div class="input-area">
+  <input id="scanInput" type="text" placeholder="ide érkezik a kód..." autocomplete="off" spellcheck="false" autofocus>
+</div>
+
+<div class="controls">
+  <button onclick="document.getElementById('scanInput').focus()">Fókusz ide</button>
+  <button id="btnClear" onclick="clearLog()">Log törlése</button>
+  <span class="counter" id="counter">0 beolvasás</span>
+</div>
+
+<div class="log-wrap">
+  <div class="log-header">Beolvasási napló (legutóbbi felül)</div>
+  <div id="log"><div class="log-empty">Még nincs beolvasás</div></div>
+</div>
+
+<script>
+  const input   = document.getElementById('scanInput');
+  const log     = document.getElementById('log');
+  const counter = document.getElementById('counter');
+
+  let mode    = 'time';   // 'time' | 'ps'
+  let count   = 0;
+  let buffer  = '';
+  let bufTimer = null;
+
+  // --- Mode switch ---
+  function setMode(m) {
+    mode = m;
+    document.getElementById('modeTimeBtn').classList.toggle('active', m === 'time');
+    document.getElementById('modePsBtn').classList.toggle('active',   m === 'ps');
+    document.getElementById('cfgTime').style.display = m === 'time' ? 'flex' : 'none';
+    document.getElementById('cfgPs').style.display   = m === 'ps'   ? 'flex' : 'none';
+    buffer = ''; input.value = '';
+    clearTimeout(bufTimer);
+  }
+
+  // Config live preview
+  document.getElementById('cfgTimeout').addEventListener('input', function() {
+    document.getElementById('previewTime').textContent = `várás: ${this.value}ms`;
+  });
+  function updatePsPreview() {
+    const p = document.getElementById('cfgPrefix').value;
+    const s = document.getElementById('cfgSuffix').value;
+    const ex = (p||'') + '1B1' + (s||'');
+    document.getElementById('previewPs').textContent = ex ? `pl. ${ex}` : '→ nyers adat';
+  }
+  document.getElementById('cfgPrefix').addEventListener('input', updatePsPreview);
+  document.getElementById('cfgSuffix').addEventListener('input', updatePsPreview);
+
+  // --- Input events ---
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      clearTimeout(bufTimer);
+      if (buffer) tryCommit(buffer, true);
+      buffer = ''; input.value = '';
+    }
+  });
+
+  input.addEventListener('input', () => {
+    buffer = input.value;
+    clearTimeout(bufTimer);
+
+    if (mode === 'time') {
+      const ms = parseInt(document.getElementById('cfgTimeout').value) || 300;
+      bufTimer = setTimeout(() => {
+        if (buffer) { tryCommit(buffer, false); buffer = ''; input.value = ''; }
+      }, ms);
+    } else {
+      // prefix-suffix mód: ellenőrzi hogy a suffix megérkezett-e
+      checkPsSuffix();
+    }
+  });
+
+  function checkPsSuffix() {
+    const suffix = document.getElementById('cfgSuffix').value;
+    if (!suffix) return; // ha nincs suffix, időalapú fallback
+    if (buffer.endsWith(suffix)) {
+      clearTimeout(bufTimer);
+      tryCommit(buffer, false);
+      buffer = ''; input.value = '';
+    }
+  }
+
+  // --- Commit ---
+  function tryCommit(raw, fromEnter) {
+    let code = raw;
+
+    if (mode === 'ps') {
+      const prefix = document.getElementById('cfgPrefix').value;
+      const suffix = document.getElementById('cfgSuffix').value;
+      // prefix levágása
+      if (prefix && code.startsWith(prefix)) code = code.slice(prefix.length);
+      // suffix levágása
+      if (suffix && code.endsWith(suffix))   code = code.slice(0, -suffix.length);
+    }
+
+    code = code.trim();
+    if (!code) return;
+    commit(code, raw);
+  }
+
+  function commit(code, raw) {
+    count++;
+    const now = new Date();
+    const ts  = now.toTimeString().slice(0,8) + '.' + String(now.getMilliseconds()).padStart(3,'0');
+
+    const empty = log.querySelector('.log-empty');
+    if (empty) empty.remove();
+
+    const showRaw = (mode === 'ps' && raw !== code);
+
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = `
+      <span class="log-num">${count}</span>
+      <span class="log-time">${ts}</span>
+      <span class="log-code new">${escHtml(code)}</span>
+      ${showRaw ? `<span class="log-raw">(nyers: ${escHtml(raw)})</span>` : ''}
+    `;
+    log.prepend(entry);
+    setTimeout(() => entry.querySelector('.log-code').classList.remove('new'), 1000);
+
+    input.classList.remove('flash');
+    void input.offsetWidth;
+    input.classList.add('flash');
+
+    counter.textContent = `${count} beolvasás`;
+  }
+
+  function clearLog() {
+    log.innerHTML = '<div class="log-empty">Log törölve</div>';
+    count = 0;
+    counter.textContent = '0 beolvasás';
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>
