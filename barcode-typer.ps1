@@ -33,7 +33,8 @@ public class HotKeyHelper {
 "@
 
 # --- Vonalkod fajl kezeles ---
-$script:codesFile = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "codes.txt"
+$script:codesFile  = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "codes.txt"
+$script:configFile = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "config.txt"
 $defaultCodes = @("1B1", "2POLC", "5901780569037", "5900458000933", "fakebin", "CLEAR")
 
 if (Test-Path $script:codesFile) {
@@ -43,10 +44,33 @@ if (Test-Path $script:codesFile) {
     $defaultCodes | Set-Content $script:codesFile -Encoding UTF8
 }
 
+# config.txt: kulcs=ertek soronkent
+function Load-Config {
+    $cfg = @{ prefix = ""; suffix = ""; enter = "1"; loop = "1"; delay = "50" }
+    if (Test-Path $script:configFile) {
+        Get-Content $script:configFile -Encoding UTF8 | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') { $cfg[$matches[1].Trim()] = $matches[2] }
+        }
+    }
+    return $cfg
+}
+
+function Save-Config {
+    @(
+        "prefix=$($txtPrefix.Text)",
+        "suffix=$($txtSuffix.Text)",
+        "enter=$(if ($chkEnter.Checked) {'1'} else {'0'})",
+        "loop=$(if ($chkLoop.Checked) {'1'} else {'0'})",
+        "delay=$($txtDelay.Text)"
+    ) | Set-Content $script:configFile -Encoding UTF8
+}
+
 function Save-CodesToFile {
     $codes = $txtCodes.Text.Split("`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
     $codes | Set-Content $script:codesFile -Encoding UTF8
 }
+
+$cfg = Load-Config
 
 # --- Dark theme szinek ---
 $bgColor  = [System.Drawing.Color]::FromArgb(30, 30, 30)
@@ -120,14 +144,14 @@ $chkEnter = New-Object System.Windows.Forms.CheckBox
 $chkEnter.Text = "Enter kuldese a kod utan"
 $chkEnter.Location = New-Object System.Drawing.Point(15, 344)
 $chkEnter.Size = New-Object System.Drawing.Size(190, 24)
-$chkEnter.Checked = $true
+$chkEnter.Checked = ($cfg.enter -ne "0")
 $form.Controls.Add($chkEnter)
 
 $chkLoop = New-Object System.Windows.Forms.CheckBox
 $chkLoop.Text = "Lista ismetlese (loop)"
 $chkLoop.Location = New-Object System.Drawing.Point(215, 344)
 $chkLoop.Size = New-Object System.Drawing.Size(190, 24)
-$chkLoop.Checked = $true
+$chkLoop.Checked = ($cfg.loop -ne "0")
 $form.Controls.Add($chkLoop)
 
 $lblDelay = New-Object System.Windows.Forms.Label
@@ -137,7 +161,7 @@ $lblDelay.Size = New-Object System.Drawing.Size(80, 24)
 $form.Controls.Add($lblDelay)
 
 $txtDelay = New-Object System.Windows.Forms.TextBox
-$txtDelay.Text = "50"
+$txtDelay.Text = $cfg.delay
 $txtDelay.Location = New-Object System.Drawing.Point(100, 374)
 $txtDelay.Size = New-Object System.Drawing.Size(50, 24)
 $txtDelay.BackColor = $inputBg
@@ -152,7 +176,7 @@ $lblPrefix.Size = New-Object System.Drawing.Size(50, 24)
 $form.Controls.Add($lblPrefix)
 
 $txtPrefix = New-Object System.Windows.Forms.TextBox
-$txtPrefix.Text = ""
+$txtPrefix.Text = $cfg.prefix
 $txtPrefix.Location = New-Object System.Drawing.Point(65, 408)
 $txtPrefix.Size = New-Object System.Drawing.Size(80, 24)
 $txtPrefix.BackColor = $inputBg
@@ -167,7 +191,7 @@ $lblSuffix.Size = New-Object System.Drawing.Size(50, 24)
 $form.Controls.Add($lblSuffix)
 
 $txtSuffix = New-Object System.Windows.Forms.TextBox
-$txtSuffix.Text = ""
+$txtSuffix.Text = $cfg.suffix
 $txtSuffix.Location = New-Object System.Drawing.Point(215, 408)
 $txtSuffix.Size = New-Object System.Drawing.Size(80, 24)
 $txtSuffix.BackColor = $inputBg
@@ -245,6 +269,12 @@ function Send-Next {
     Update-UI
     $lblStatus.Text = "Elkuldte: $full"
 }
+
+$txtPrefix.Add_TextChanged({ Save-Config })
+$txtSuffix.Add_TextChanged({ Save-Config })
+$chkEnter.Add_CheckedChanged({ Save-Config })
+$chkLoop.Add_CheckedChanged({ Save-Config })
+$txtDelay.Add_TextChanged({ Save-Config })
 
 $btnScan.Add_Click({ Send-Next })
 $btnReset.Add_Click({ $script:idx = 0; Update-UI; $lblStatus.Text = "Reset." })
